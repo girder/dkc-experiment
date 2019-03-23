@@ -1,0 +1,32 @@
+version: 2
+jobs:
+  test:
+    docker:
+      - image: themattrix/tox
+    steps:
+      - checkout
+      - run: pip install -U 'tox>=3.7'
+      - run: tox -p auto -o
+
+  release:
+    docker:
+      - image: circleci/python:3.6.1
+    steps:
+      - checkout
+      - run: sudo pip install -U 'tox>=3.7'
+      - run: tox -e release
+      # twine push to pypi
+
+workflows:
+  version: 2
+  test_and_release:
+    jobs:
+      - test
+      - release:
+          requires:
+            - test
+          filters:
+            branches:
+              only: master
+            tags:
+              only: /^v[0-9]+.*/
