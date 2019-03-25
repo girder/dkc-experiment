@@ -5,7 +5,7 @@ from flask import current_app, Flask, jsonify
 from marshmallow import ValidationError
 from werkzeug.contrib.fixers import ProxyFix
 
-from girder_dkc.models import db
+from girder_dkc import db
 
 
 def handle_validation_error(e):

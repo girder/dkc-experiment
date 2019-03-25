@@ -1,8 +1,8 @@
 import dotenv
 import pytest
 
+from girder_dkc import db
 from girder_dkc.app import create_app
-from girder_dkc.models import db
 
 
 @pytest.fixture(autouse=True)
