@@ -12,6 +12,7 @@ setup(
         'click',
         'flask',
         'flask-sqlalchemy',
+        'fs>=2',
         'marshmallow>=3.0.0rc4',
         'python-dotenv',
         'sqlalchemy-utils'
