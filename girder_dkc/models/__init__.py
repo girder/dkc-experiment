@@ -1,6 +1,9 @@
-from girder_dkc.models.base import BaseModel, BaseSchema
+from girder_dkc.models.asset_store import AssetStore, AssetStoreSchema
+from girder_dkc.models.file import File, FileSchema
 
 __all__ = (
-    BaseModel,
-    BaseSchema
+    'AssetStore',
+    'AssetStoreSchema',
+    'File',
+    'FileSchema'
 )

@@ -3,6 +3,7 @@ import pytest
 
 from girder_dkc import db
 from girder_dkc.app import create_app
+from girder_dkc.models import AssetStoreSchema
 
 
 @pytest.fixture(autouse=True)
@@ -22,10 +23,20 @@ def app():
     with app.app_context():
         db.create_all()
 
-    yield app
+    with app.test_request_context():
+        yield app
 
 
 @pytest.fixture
 def client(app):
-    with app.test_request_context(), app.test_client() as client:
+    with app.test_client() as client:
         yield client
+
+
+@pytest.fixture
+def asset_store(app):
+    asset_store_schema = AssetStoreSchema()
+    a = asset_store_schema.load({'base_uri': 'mem://'})
+    db.session.add(a)
+    db.session.commit()
+    yield a
