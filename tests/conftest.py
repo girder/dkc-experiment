@@ -1,9 +1,12 @@
+from io import BytesIO
+from tempfile import TemporaryDirectory
+
 import dotenv
 import pytest
 
 from girder_dkc import db
 from girder_dkc.app import create_app
-from girder_dkc.models import FilesystemSchema
+from girder_dkc.models import FileSchema, FilesystemSchema
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +39,18 @@ def client(app):
 @pytest.fixture
 def filesystem(app):
     filesystem_schema = FilesystemSchema()
-    a = filesystem_schema.load({'base_uri': 'mem://'})
-    db.session.add(a)
+    with TemporaryDirectory() as d:
+        a = filesystem_schema.load({'base_uri': f'file://{d}'})
+        db.session.add(a)
+        db.session.commit()
+        yield a
+
+
+@pytest.fixture
+def file(filesystem):
+    file_schema = FileSchema()
+    file = file_schema.load({'path': '/test.txt', 'filesystem_id': filesystem.id})
+    db.session.add(file)
     db.session.commit()
-    yield a
+    file.upload(BytesIO(b'test'))
+    yield file

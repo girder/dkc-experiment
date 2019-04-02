@@ -22,3 +22,10 @@ def test_open_file(filesystem):
 
     with file.open('r') as f:
         assert f.read() == 'test'
+
+
+def test_delete_file(file):
+    assert file.filesystem.fs.exists(file.path)
+    db.session.delete(file)
+    db.session.commit()
+    assert file.filesystem.fs.exists(file.path)
