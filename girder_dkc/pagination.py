@@ -1,43 +1,57 @@
-from flask import jsonify, request
+from flask import abort, jsonify, request
+from marshmallow import fields, validate
 from werkzeug.urls import Href
 
 
-def paged_response(query, serialize_fn, default_size=20, maximum_size=100):
+pagination_args = {
+    'limit': fields.Int(missing=20, validate=validate.Range(min=1)),
+    'offset': fields.Int(missing=0, validate=validate.Range(min=0))
+}
+
+
+def paged_response(query, args, serialize_fn, maximum_limit=None):
     """
     Paginate a query and generate a response object.
 
     :param query: A SQLAlchemy query object
     :param serialize_fn: A callable responsible for serializing the response
-    :param default_size: The default page size if none is provided in the request
-    :param maximum_size: The maximum page size allowed
+    :param args: Parsed request arguments
+    :param maximum_limit: The maximum page size allowed
     """
+    # We don't use the paginate() method from flask-sqlalchemy because it
+    # does not allow the more flexible limit/offset api.
+    limit = args['limit']
+    offset = args['offset']
+    total = query.count()
     href = Href(request.base_url)
-    args = dict(request.args)
 
-    # insert the page size parameter if not provided in the args
-    args['per_page'] = args.get('per_page', None)
+    if offset > 0 and offset >= total:
+        # This is the behavior of flask-sqlalchemy pagination, but we could instead
+        # return an empty list.
+        abort(404)
 
-    page = query.paginate()
+    if maximum_limit and limit > maximum_limit:
+        # throw a validation error if the limit is larger than the maximum
+        limit = validate.Range(min=1, max=maximum_limit)(limit)
 
-    response = jsonify(serialize_fn(page.items))
-    links = []
+    response = jsonify(serialize_fn(query.limit(limit).offset(offset)))
+    response.headers['Resource-Count'] = total
 
     # generate link header
-    args['page'] = 1
-    links.append('<%s>; rel="first"' % href(**args))
+    links = []
+    first_page = dict(args, limit=limit, offset=0)
+    links.append('<%s>; rel="first"' % href(**first_page))
 
-    args['page'] = max(1, page.pages)
-    links.append('<%s>; rel="last"' % href(**args))
+    last_page = dict(args, limit=limit, offset=max(0, limit * ((total - 1) // limit)))
+    links.append('<%s>; rel="last"' % href(**last_page))
 
-    if page.has_prev:
-        args['page'] = page.prev_num
-        links.append('<%s>; rel="prev"' % href(**args))
+    if offset - limit >= 0:
+        previous_page = dict(args, limit=limit, offset=(offset - limit))
+        links.append('<%s>; rel="prev"' % href(**previous_page))
 
-    if page.has_next:
-        args['page'] = page.next_num
-        links.append('<%s>; rel="next"' % href(**args))
+    if offset + limit < total:
+        next_page = dict(args, limit=limit, offset=(offset + limit))
+        links.append('<%s>; rel="next"' % href(**next_page))
 
     response.headers['Link'] = ', '.join(links)
-    response.headers['Resource-Count'] = query.count()
-    response.headers['Page-Count'] = page.pages
     return response

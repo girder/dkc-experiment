@@ -1,26 +1,28 @@
 from functools import partial
 
 from flask import Blueprint, jsonify, request
+from webargs.flaskparser import use_args
 
 from girder_dkc import db
 from girder_dkc.models import File, FileSchema
-from girder_dkc.pagination import paged_response
+from girder_dkc.pagination import paged_response, pagination_args
 
 file_schema = FileSchema()
 file_bp = Blueprint('file', __name__)
 
 
 @file_bp.route('/file', methods=['GET'])
-def list_files():
+@use_args(pagination_args)
+def list_files(args):
 
     # TODO: add filtering parameters
-
-    return paged_response(File.query, partial(file_schema.dump, many=True))
+    return paged_response(File.query, args, partial(file_schema.dump, many=True))
 
 
 @file_bp.route('/file', methods=['POST'])
-def create_file():
-    file = file_schema.load(request.json)
+@use_args(FileSchema())
+def create_file(args):
+    file = file_schema.load(args)
     db.session.add(file)
     db.session.commit()
     return jsonify(file_schema.dump(file)), 201
@@ -36,7 +38,6 @@ def modify_file(file_id):
     file = File.query.get_or_404(file_id)
 
     # TODO: add attribute changes
-
     db.session.add(file)
     db.session.commit()
     return file

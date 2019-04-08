@@ -5,18 +5,18 @@ from webargs.flaskparser import use_args
 
 from girder_dkc import db
 from girder_dkc.models import Filesystem, FilesystemSchema
-from girder_dkc.pagination import paged_response
+from girder_dkc.pagination import paged_response, pagination_args
 
 filesystem_schema = FilesystemSchema()
 filesystem_bp = Blueprint('filesystem', __name__)
 
 
 @filesystem_bp.route('/filesystem', methods=['GET'])
-def list_filesystems(filesystem):
+@use_args(pagination_args)
+def list_filesystems(args, filesystem):
 
     # TODO: add filtering parameters
-
-    return paged_response(Filesystem.query, partial(filesystem_schema.dump, many=True))
+    return paged_response(Filesystem.query, args, partial(filesystem_schema.dump, many=True))
 
 
 @filesystem_bp.route('/filesystem', methods=['POST'])
