@@ -15,7 +15,8 @@ setup(
         'fs>=2',
         'marshmallow>=3.0.0rc4',
         'python-dotenv',
-        'sqlalchemy-utils'
+        'sqlalchemy-utils',
+        'webargs'
     ],
     license='Apache Software License 2.0',
     entry_points={

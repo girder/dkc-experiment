@@ -1,7 +1,8 @@
 from functools import partial
 
-from flask import Blueprint, jsonify, request
-from webargs.flaskparser import use_args
+from flask import Blueprint, current_app, jsonify
+from webargs import fields
+from webargs.flaskparser import use_args, use_kwargs
 
 from girder_dkc import db
 from girder_dkc.models import File, FileSchema
@@ -20,12 +21,28 @@ def list_files(args):
 
 
 @file_bp.route('/file', methods=['POST'])
-@use_args(FileSchema())
-def create_file(args):
-    file = file_schema.load(args)
-    db.session.add(file)
-    db.session.commit()
-    return jsonify(file_schema.dump(file)), 201
+@use_kwargs({
+    'filesystem_id': fields.UUID(required=True),
+    'path': fields.Str(required=True),
+    'data': fields.Field(location='files', required=False)
+})
+def create_file(filesystem_id, path, **kwargs):
+    try:
+        file = file_schema.load(filesystem_id=filesystem_id, path=path, **kwargs)
+        db.session.add(file)
+
+        if 'data' in kwargs:
+            file.upload(kwargs['data'])
+
+        db.session.commit()
+        return jsonify(file_schema.dump(file)), 201
+    except Exception:
+        try:
+            file.delete_blob()
+        except Exception:
+            current_app.logger.exception('Could not delete blob in error handler')
+        db.session.rollback()
+        raise
 
 
 @file_bp.route('/file/<uuid:file_id>', methods=['GET'])

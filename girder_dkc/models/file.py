@@ -23,6 +23,8 @@ class FileStatus(IntEnum):
     READY = 0
     CREATED = 1
     UPLOADING = 2
+    DELETING = 3
+    DELETED = 4
 
     @classmethod
     def int_values(cls):
@@ -32,6 +34,7 @@ class FileStatus(IntEnum):
 
 class File(db.Model):
     path = db.Column(db.String, nullable=False)
+    size = db.Column(db.Integer, nullable=False)
     status = db.Column(db.Integer, nullable=False)
 
     filesystem_id = db.Column(UUIDType, db.ForeignKey('filesystem.id'))
@@ -50,16 +53,21 @@ class File(db.Model):
         with self.open('wb') as f:
             copyfileobj(stream, f)
 
+        self.size = self.filesystem.fs.getsize(self.path)
         self.status = FileStatus.READY
 
     def open(self, *args, **kwargs):
         return self.filesystem.fs.open(self.path, *args, **kwargs)
 
+    def delete_blob(self):
+        self.status = FileStatus.DELETING
+        self.filesystem.fs.remove(self.path)
+        self.status = FileStatus.DELETED
+
     @classmethod
     def _delete_file_blob(cls, mapper, connection, target):
         try:
-            with target.filesystem.fs as fs:
-                fs.remove(target.path)
+            target.delete_blob()
         except Exception as e:
             current_app.logger.exception(e)
 
@@ -71,6 +79,7 @@ class FileSchema(BaseSchema):
     __model__ = File
 
     path = fields.Str(required=True, validate=validate.Regexp(_path_regexp))
+    size = fields.Int(missing=0, validate=validate.Range(min=0))
     status = fields.Int(missing=FileStatus.CREATED, validate=validate.OneOf(FileStatus))
     filesystem_id = fields.UUID(required=True, load_only=True)
     filesystem = fields.Nested('FilesystemSchema', dump_only=True)
